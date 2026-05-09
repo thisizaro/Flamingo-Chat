@@ -1,6 +1,16 @@
 # Flamingo Chat
 
-## File Structure
+A simple Go-based chat server with matchmaking, real-time WebSocket transport, and clean modular design.
+
+## What this project includes
+
+- Matchmaking system for pairing users in private chats
+- WebSocket transport layer for real-time messaging
+- Event-based protocol for chat actions
+- User session handling and presence tracking
+- Background cleanup of inactive sessions
+
+## Project Structure
 
 ```
 │   go.mod
@@ -45,159 +55,164 @@
     └───utils
 ```
 
-## Code Base
+## Core components
 
-- **cmd/server/main.go**
-  - main
+### Entry point
+- `cmd/server/main.go`
+  - Starts the chat server
 
-- **internal/chat/chat.go**
-  - GetOtherUserID
+### Chat management
+- `internal/chat/chat.go`
+  - `GetOtherUserID`
+- `internal/chat/manager.go`
+  - `NewManager`
+  - `CreateChat`
+  - `EndChat`
+  - `SendMessage`
+  - `GetChat`
+  - `RemoveChat`
+- `internal/chat/message.go`
+  - Message definitions and helper logic
 
-- **internal/chat/manager.go**
-  - NewManager
-  - CreateChat
-  - EndChat
-  - SendMessage
-  - GetChat
-  - RemoveChat
+### Event handling
+- `internal/events/builder.go`
+  - `BuildEvent`
+- `internal/events/events.go`
+  - Event definitions and payload types
+- `internal/events/parser.go`
+  - `ParseEvent`
 
-- **internal/chat/message.go**
+### Matchmaking
+- `internal/matchmaking/matcher.go`
+  - `FindMatch`
+- `internal/matchmaking/queue.go`
+  - `NewQueue`
+  - `AddUser`
+  - `RemoveUser`
+  - `RemoveUsers`
 
-- **internal/events/builder.go**
-  - BuildEvent
+### Server logic and state
+- `internal/server/presence.go`
+  - `GetPresenceStats`
+- `internal/server/server.go`
+  - `NewServer`
+  - `CreateUser`
+  - `SetPreferences`
+  - `SetOnline`
+  - `JoinQueue`
+  - `TryMatch`
+  - `SendMessage`
+  - `CreateSession`
+  - `PingSession`
+  - `DisconnectSession`
+  - `LeaveChat`
+- `internal/server/state.go`
+  - Server state management
+- `internal/server/worker.go`
+  - `StartCleanupWorker`
+  - `cleanupInactiveSessions`
 
-- **internal/events/events.go**
+### WebSocket transport
+- `internal/transport/websocket/client.go`
+  - `ReadPump`
+  - `WritePump`
+- `internal/transport/websocket/handler.go`
+  - `ServeWS`
+- `internal/transport/websocket/hub.go`
+  - `NewHub`
+  - `Run`
+  - `GetClientByID`
+  - `SendToClient`
+  - `Broadcast`
+  - `BroadcastPresence`
+- `internal/transport/websocket/router.go`
+  - `HandleEvent`
+  - `handleJoinQueue`
+  - `handleSendMessage`
+  - `handleNextPartner`
 
-- **internal/events/parser.go**
-  - ParseEvent
+### User management
+- `internal/user/session.go`
+  - Session handling and expiry
+- `internal/user/user.go`
+  - User profile and preferences
 
-- **internal/matchmaking/matcher.go**
-  - FindMatch
+## Code summary
 
-- **internal/matchmaking/queue.go**
-  - NewQueue
-  - AddUser
-  - RemoveUser
-  - RemoveUsers
+A quick list of packages and exported symbols:
 
-- **internal/server/presence.go**
-  - GetPresenceStats
+- `flamingo_chat`
+  - `main`
+- `flamingo_chat/internal/events`
+  - `BuildEvent`
+  - `Event`
+  - `JoinQueuePayload`
+  - `SendMessagePayload`
+  - `MatchFoundPayload`
+  - `MessageReceivedPayload`
+  - `ErrorPayload`
+  - `NextPartnerPayload`
+  - `ChatEndedPayload`
+  - `ParseEvent`
+- `flamingo_chat/internal/chat`
+  - `Chat`
+  - `GetOtherUserID`
+  - `Manager`
+  - `NewManager`
+  - `CreateChat`
+  - `EndChat`
+  - `SendMessage`
+  - `GetChat`
+  - `RemoveChat`
+  - `Message`
+- `flamingo_chat/internal/matchmaking`
+  - `FindMatch`
+  - `QueueEntry`
+  - `Queue`
+  - `NewQueue`
+  - `AddUser`
+  - `RemoveUser`
+  - `RemoveUsers`
+- `flamingo_chat/internal/user`
+  - `Session`
+  - `User`
+- `flamingo_chat/internal/server`
+  - `PresenceStats`
+  - `GetPresenceStats`
+  - `Server`
+  - `NewServer`
+  - `CreateUser`
+  - `SetPreferences`
+  - `SetOnline`
+  - `JoinQueue`
+  - `TryMatch`
+  - `SendMessage`
+  - `CreateSession`
+  - `PingSession`
+  - `DisconnectSession`
+  - `LeaveChat`
+  - `State`
+  - `StartCleanupWorker`
+  - `cleanupInactiveSessions`
+- `flamingo_chat/internal/transport/websocket`
+  - `Client`
+  - `ReadPump`
+  - `WritePump`
+  - `ServeWS`
+  - `Hub`
+  - `NewHub`
+  - `Run`
+  - `GetClientByID`
+  - `SendToClient`
+  - `Broadcast`
+  - `BroadcastPresence`
+  - `HandleEvent`
+  - `handleJoinQueue`
+  - `handleSendMessage`
+  - `handleNextPartner`
 
-- **internal/server/server.go**
-  - NewServer
-  - CreateUser
-  - SetPreferences
-  - SetOnline
-  - JoinQueue
-  - TryMatch
-  - SendMessage
-  - CreateSession
-  - PingSession
-  - DisconnectSession
-  - LeaveChat
+## Notes
 
-- **internal/server/state.go**
-
-- **internal/server/worker.go**
-  - StartCleanupWorker
-  - cleanupInactiveSessions
-
-- **internal/transport/websocket/client.go**
-  - ReadPump
-  - WritePump
-
-- **internal/transport/websocket/handler.go**
-  - ServeWS
-
-- **internal/transport/websocket/hub.go**
-  - NewHub
-  - Run
-  - GetClientByID
-  - SendToClient
-  - Broadcast
-  - BroadcastPresence
-
-- **internal/transport/websocket/router.go**
-  - HandleEvent
-  - handleJoinQueue
-  - handleSendMessage
-  - handleNextPartner
-
-- **internal/user/session.go**
-
-- **internal/user/user.go**
-
-
- go run .\allStructus.go
-Package: flamingo_chat
-  Function: main
-  Function: main
-Package: flamingo_chat/internal/events
-  Function: BuildEvent
-  Struct: Event
-  Struct: JoinQueuePayload
-  Struct: SendMessagePayload
-  Struct: MatchFoundPayload
-  Struct: MessageReceivedPayload
-  Struct: ErrorPayload
-  Struct: NextPartnerPayload
-  Struct: ChatEndedPayload
-  Function: ParseEvent
-Package: flamingo_chat/internal/chat
-  Struct: Chat
-  Method: GetOtherUserID
-  Struct: Manager
-  Function: NewManager
-  Method: CreateChat
-  Method: EndChat
-  Method: SendMessage
-  Method: GetChat
-  Method: RemoveChat
-  Struct: Message
-Package: flamingo_chat/internal/matchmaking
-  Method: FindMatch
-  Struct: QueueEntry
-  Struct: Queue
-  Function: NewQueue
-  Method: AddUser
-  Method: RemoveUser
-  Method: RemoveUsers
-Package: flamingo_chat/internal/user
-  Struct: Session
-  Struct: User
-Package: flamingo_chat/internal/server
-  Struct: PresenceStats
-  Method: GetPresenceStats
-  Struct: Server
-  Function: NewServer
-  Method: CreateUser
-  Method: SetPreferences
-  Method: SetOnline
-  Method: JoinQueue
-  Method: TryMatch
-  Method: SendMessage
-  Method: CreateSession
-  Method: PingSession
-  Method: DisconnectSession
-  Method: LeaveChat
-  Struct: State
-  Method: StartCleanupWorker
-  Method: cleanupInactiveSessions
-Package: flamingo_chat/internal/transport/websocket
-  Struct: Client
-  Method: ReadPump
-  Method: WritePump
-  Function: ServeWS
-  Struct: Hub
-  Function: NewHub
-  Method: Run
-  Method: GetClientByID
-  Method: SendToClient
-  Method: Broadcast
-  Method: BroadcastPresence
-  Function: HandleEvent
-  Function: handleJoinQueue
-  Function: handleSendMessage
-  Function: handleNextPartner
-Package: flamingo_chat/cmd/server
-  Function: main
+- This README is intended as a quick overview of the repository structure.
+- Implementation details are organized under `internal/` to keep the server modular and testable.
+- The `cmd/server` package contains the main application entry point.
