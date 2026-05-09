@@ -5,11 +5,10 @@ import "time"
 type Status string
 
 const (
-	StatusIdle    Status = "idle"
-	StatusInQueue Status = "in_queue"
-	StatusInChat  Status = "in_chat"
-	StatusOffline Status = "offline"
-	StatusOnline  Status = "online"
+	StatusOffline Status = "offline"  // not connected
+	StatusIdle    Status = "idle"     // connected, not in queue or chat
+	StatusInQueue Status = "in_queue" // waiting for a match
+	StatusInChat  Status = "in_chat"  // currently in a chat
 )
 
 type User struct {

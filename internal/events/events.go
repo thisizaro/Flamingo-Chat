@@ -4,14 +4,16 @@ type EventType string
 
 const (
 
-	// incoming events
+	// incoming events (client → server)
+	EventInit        EventType = "init"
 	EventJoinQueue   EventType = "join_queue"
 	EventSendMessage EventType = "send_message"
 	EventPing        EventType = "ping"
 	EventLeaveChat   EventType = "leave_chat"
 	EventNextPartner EventType = "next_partner"
 
-	// outgoing events
+	// outgoing events (server → client)
+	EventReady           EventType = "ready"
 	EventQueueJoined     EventType = "queue_joined"
 	EventMatchFound      EventType = "match_found"
 	EventMessageReceived EventType = "message_received"
@@ -25,6 +27,15 @@ type Event struct {
 	Payload any       `json:"payload"`
 }
 
+// --- incoming payloads ---
+
+// InitPayload is the first thing a client sends.
+// UserID is empty string if they are new.
+// UserID is their stored ID if they are returning.
+type InitPayload struct {
+	UserID string `json:"user_id"`
+}
+
 type JoinQueuePayload struct {
 	Gender     string `json:"gender"`
 	Preference string `json:"preference"`
@@ -33,6 +44,18 @@ type JoinQueuePayload struct {
 type SendMessagePayload struct {
 	ChatID  string `json:"chat_id"`
 	Content string `json:"content"`
+}
+
+type NextPartnerPayload struct {
+	ChatID string `json:"chat_id"`
+}
+
+// --- outgoing payloads ---
+
+// ReadyPayload is what the server sends back after init.
+// The client must store this UserID locally (localStorage etc).
+type ReadyPayload struct {
+	UserID string `json:"user_id"`
 }
 
 type MatchFoundPayload struct {
@@ -49,10 +72,6 @@ type MessageReceivedPayload struct {
 
 type ErrorPayload struct {
 	Message string `json:"message"`
-}
-
-type NextPartnerPayload struct {
-	ChatID string `json:"chat_id"`
 }
 
 type ChatEndedPayload struct {

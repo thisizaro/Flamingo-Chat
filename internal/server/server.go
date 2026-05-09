@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flamingo_chat/internal/chat"
 	"flamingo_chat/internal/events"
 	"flamingo_chat/internal/matchmaking"
@@ -12,28 +14,25 @@ import (
 
 type Server struct {
 	state *State
-
 	queue *matchmaking.Queue
-
 	chats *chat.Manager
+	mu    sync.Mutex
 
-	mu sync.Mutex
+	// Callbacks — set by the app layer, not main.
+	// The server calls these when something happens that
+	// the outside world (transport) needs to know about.
 
-	OnMatchFound func(
-		userAID string,
-		userBID string,
-		chatID string,
-	)
+	// OnMatchFound: tell both users they have been matched
+	OnMatchFound func(userAID, userBID, chatID string)
 
-	OnMessage func(
-		receiverID string,
-		data []byte,
-	)
+	// OnMessage: deliver a message to a specific user
+	OnMessage func(receiverID string, data []byte)
 
-	OnChatEnded func(
-		userID string,
-		data []byte,
-	)
+	// OnChatEnded: tell a user their chat has ended
+	OnChatEnded func(userID string, data []byte)
+
+	// OnReady: send the ready event back to a specific user
+	OnReady func(userID string, data []byte)
 }
 
 func NewServer() *Server {
@@ -47,21 +46,48 @@ func NewServer() *Server {
 	}
 }
 
-// Create a new user
-func (s *Server) CreateUser(id string) *user.User {
+// generateUserID creates a short random hex ID, e.g. "a3f9c2b1e4d70c88"
+func generateUserID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// --- Init ---
+
+// InitUser handles a client connecting for the first time or returning.
+// If userID is empty or not found, a new user is created.
+// Returns the user (new or existing) so the caller can send EventReady.
+func (s *Server) InitUser(userID string) *user.User {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	u := &user.User{
-		ID:     id,
-		Status: user.StatusIdle,
+	// returning user — found in state
+	if userID != "" {
+		if u, ok := s.state.Users[userID]; ok {
+			u.Status = user.StatusIdle
+			u.LastActiveAt = time.Now()
+			fmt.Println("[SERVER] Returning user:", u.ID)
+			return u
+		}
+		// ID provided but not found — fall through and make a new one
+		fmt.Println("[SERVER] Unknown user ID, creating new user:", userID)
 	}
 
-	s.state.Users[id] = u
+	// new user
+	u := &user.User{
+		ID:           generateUserID(),
+		Status:       user.StatusIdle,
+		CreatedAt:    time.Now(),
+		LastActiveAt: time.Now(),
+	}
+	s.state.Users[u.ID] = u
+	fmt.Println("[SERVER] New user created:", u.ID)
 	return u
 }
 
-// Set preferences
+// --- User management ---
+
 func (s *Server) SetPreferences(id, gender, preference string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -73,7 +99,6 @@ func (s *Server) SetPreferences(id, gender, preference string) {
 	}
 }
 
-// Set user online
 func (s *Server) SetOnline(id string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -84,7 +109,8 @@ func (s *Server) SetOnline(id string) {
 	}
 }
 
-// Join Queue function
+// --- Queue ---
+
 func (s *Server) JoinQueue(userID string) {
 	s.mu.Lock()
 
@@ -96,12 +122,13 @@ func (s *Server) JoinQueue(userID string) {
 
 	u.Status = user.StatusInQueue
 	u.LastActiveAt = time.Now()
-
 	s.queue.AddUser(u.ID, u.Gender, u.Preference)
 
 	s.mu.Unlock()
 
-	// try matching AFTER unlock (important)
+	// TryMatch is called WITHOUT the lock held.
+	// TryMatch acquires its own lock internally.
+	// Do not call TryMatch while holding the lock — deadlock.
 	s.TryMatch()
 }
 
@@ -114,45 +141,33 @@ func (s *Server) TryMatch() {
 		return
 	}
 
-	// remove from queue
 	s.queue.RemoveUsers(a.UserID, b.UserID)
 
-	// update user states
 	userA := s.state.Users[a.UserID]
 	userB := s.state.Users[b.UserID]
 
 	userA.Status = user.StatusInChat
 	userB.Status = user.StatusInChat
 
-	// TEMP: just print match
-	fmt.Println("Matched:", userA.ID, "with", userB.ID)
+	chatID := generateUserID() // random chat ID, no collision risk
+	newChat := s.chats.CreateChat(chatID, []string{userA.ID, userB.ID})
 
-	// create chat
-	chatID := a.UserID + "_" + b.UserID // simple for now
-	chat := s.chats.CreateChat(chatID, []string{userA.ID, userB.ID})
+	fmt.Println("[SERVER] Matched:", userA.ID, "with", userB.ID)
+	fmt.Println("[SERVER] Chat created:", newChat.ID)
 
-	fmt.Println("Matched:", userA.ID, "with", userB.ID)
-	fmt.Println("Chat created:", chat.ID)
-
-	// trigger match found callback
 	if s.OnMatchFound != nil {
-
-		s.OnMatchFound(
-			userA.ID,
-			userB.ID,
-			chat.ID,
-		)
+		s.OnMatchFound(userA.ID, userB.ID, newChat.ID)
 	}
 }
 
-// send message.
+// --- Messaging ---
+
 func (s *Server) SendMessage(
 	userID,
 	chatID,
 	content string,
 	messageType chat.MessageType,
 ) {
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -167,27 +182,15 @@ func (s *Server) SendMessage(
 		return
 	}
 
-	fmt.Println("[SERVER] Processing message from:", userID)
+	s.chats.SendMessage(chatID, userID, content, messageType)
 
-	// send message to chat manager
-	s.chats.SendMessage(
-		chatID,
-		userID,
-		content,
-		messageType,
-	)
-
-	// get chat room to find receiver
 	chatRoom, ok := s.chats.GetChat(chatID)
-
 	if !ok {
 		return
 	}
 
-	// find the other user in the chat
 	receiverID := chatRoom.GetOtherUserID(userID)
 
-	// build event data
 	eventData, _ := events.BuildEvent(
 		events.EventMessageReceived,
 		events.MessageReceivedPayload{
@@ -198,23 +201,14 @@ func (s *Server) SendMessage(
 		},
 	)
 
-	// trigger message callback
 	if s.OnMessage != nil {
-
-		s.OnMessage(
-			receiverID,
-			eventData,
-		)
+		s.OnMessage(receiverID, eventData)
 	}
 }
 
-// create session
-func (s *Server) CreateSession(
-	sessionID,
-	userID,
-	token string,
-) *user.Session {
+// --- Sessions ---
 
+func (s *Server) CreateSession(sessionID, userID, token string) *user.Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -229,10 +223,7 @@ func (s *Server) CreateSession(
 
 	s.state.Sessions[sessionID] = session
 
-	fmt.Println("[SESSION] Session created")
-	fmt.Println("  SessionID:", sessionID)
-	fmt.Println("  UserID:", userID)
-
+	fmt.Println("[SESSION] Created — SessionID:", sessionID, "UserID:", userID)
 	return session
 }
 
@@ -242,14 +233,10 @@ func (s *Server) PingSession(sessionID string) {
 
 	session, ok := s.state.Sessions[sessionID]
 	if !ok {
-		fmt.Println("[SESSION] Session not found:", sessionID)
 		return
 	}
 
 	session.LastPingAt = time.Now()
-
-	fmt.Println("[SESSION] Ping updated")
-	fmt.Println("  SessionID:", sessionID)
 }
 
 func (s *Server) DisconnectSession(sessionID string) {
@@ -258,7 +245,6 @@ func (s *Server) DisconnectSession(sessionID string) {
 
 	session, ok := s.state.Sessions[sessionID]
 	if !ok {
-		fmt.Println("[SESSION] Session not found:", sessionID)
 		return
 	}
 
@@ -268,66 +254,53 @@ func (s *Server) DisconnectSession(sessionID string) {
 	if exists {
 		u.Status = user.StatusOffline
 		u.LastActiveAt = time.Now()
-
-		// remove from queue if needed
 		s.queue.RemoveUsers(u.ID)
-
-		fmt.Println("[SESSION] User marked offline")
-		fmt.Println("  UserID:", u.ID)
+		fmt.Println("[SESSION] User offline:", u.ID)
 	}
 
-	fmt.Println("[SESSION] Session disconnected")
-	fmt.Println("  SessionID:", sessionID)
+	fmt.Println("[SESSION] Disconnected:", sessionID)
 }
 
-func (s *Server) LeaveChat(
-	userID string,
-	chatID string,
-) {
+// --- Chat ---
 
+func (s *Server) LeaveChat(userID, chatID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	chatRoom, ok := s.chats.GetChat(chatID)
-
 	if !ok {
-
-		fmt.Println("[CHAT] Chat not found")
+		fmt.Println("[CHAT] Chat not found:", chatID)
 		return
 	}
 
 	partnerID := chatRoom.GetOtherUserID(userID)
 
-	// end chat
 	s.chats.EndChat(chatID)
-
-	// remove chat
 	s.chats.RemoveChat(chatID)
 
-	// reset users
+	// both users go back to idle, ready to queue again
 	if u, ok := s.state.Users[userID]; ok {
-
-		u.Status = user.StatusOnline
+		u.Status = user.StatusIdle
 	}
-
 	if u, ok := s.state.Users[partnerID]; ok {
-
-		u.Status = user.StatusOnline
+		u.Status = user.StatusIdle
 	}
 
-	fmt.Println("[CHAT] Chat ended")
-	fmt.Println("  ChatID:", chatID)
+	fmt.Println("[CHAT] Ended:", chatID)
 
-	// notify partner
 	if s.OnChatEnded != nil {
-
 		data, _ := events.BuildEvent(
 			events.EventChatEnded,
-			events.ChatEndedPayload{
-				Reason: "partner_left",
-			},
+			events.ChatEndedPayload{Reason: "partner_left"},
 		)
-
 		s.OnChatEnded(partnerID, data)
 	}
+}
+
+// UserExists checks if a user ID is known to the server.
+func (s *Server) UserExists(userID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.state.Users[userID]
+	return ok
 }

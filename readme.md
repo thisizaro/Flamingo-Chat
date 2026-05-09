@@ -1,218 +1,138 @@
 # Flamingo Chat
 
-A simple Go-based chat server with matchmaking, real-time WebSocket transport, and clean modular design.
-
-## What this project includes
-
-- Matchmaking system for pairing users in private chats
-- WebSocket transport layer for real-time messaging
-- Event-based protocol for chat actions
-- User session handling and presence tracking
-- Background cleanup of inactive sessions
+A Go-based anonymous chat server with matchmaking, real-time WebSocket transport, and a clean modular architecture.
 
 ## Project Structure
 
 ```
+flamingo_chat/
 │   go.mod
 │   go.sum
 │
-├───cmd
-│   └───server
-│       main.go
+├───cmd/
+│   └───server/
+│       main.go              ← entry point
 │
-└───internal
-    ├───chat
-    │   chat.go
-    │   manager.go
-    │   message.go
+└───internal/
+    ├───app/
+    │   handler.go           ← event routing, wires server ↔ transport
     │
-    ├───events
-    │   builder.go
-    │   events.go
-    │   parser.go
+    ├───chat/
+    │   chat.go              ← Chat struct
+    │   manager.go           ← in-memory chat store
+    │   message.go           ← Message struct
     │
-    ├───matchmaking
-    │   matcher.go
-    │   queue.go
+    ├───events/
+    │   builder.go           ← BuildEvent (serialize)
+    │   events.go            ← all event types and payload structs
+    │   parser.go            ← ParseEvent (deserialize)
     │
-    ├───server
-    │   presence.go
-    │   server.go
-    │   state.go
-    │   worker.go
+    ├───matchmaking/
+    │   matcher.go           ← FindMatch logic
+    │   queue.go             ← Queue and QueueEntry
     │
-    ├───transport
-    │   └───websocket
-    │       client.go
-    │       handler.go
-    │       hub.go
-    │       router.go
+    ├───server/
+    │   presence.go          ← GetPresenceStats
+    │   server.go            ← core orchestrator, all business logic
+    │   state.go             ← in-memory state (users, sessions)
+    │   worker.go            ← background session cleanup
     │
-    ├───user
-    │   session.go
-    │   user.go
+    ├───transport/
+    │   └───websocket/
+    │       client.go        ← one Client per WebSocket connection
+    │       hub.go           ← registry of all connected clients
     │
-    └───utils
+    └───user/
+        session.go           ← Session struct
+        user.go              ← User struct and status constants
 ```
 
-## Core components
+## Architecture
 
-### Entry point
-- `cmd/server/main.go`
-  - Starts the chat server
+The project is split into four distinct layers. Each layer only talks to the layer next to it.
 
-### Chat management
-- `internal/chat/chat.go`
-  - `GetOtherUserID`
-- `internal/chat/manager.go`
-  - `NewManager`
-  - `CreateChat`
-  - `EndChat`
-  - `SendMessage`
-  - `GetChat`
-  - `RemoveChat`
-- `internal/chat/message.go`
-  - Message definitions and helper logic
+```
+[Browser]
+    ↕ WebSocket (raw JSON bytes)
+[transport/websocket]    — dumb pipe, just reads and writes bytes
+    ↕ parsed events
+[app]                    — routes events to the right server method
+    ↕ method calls + callbacks
+[server]                 — owns all state, all business logic
+    ↕
+[chat / matchmaking / user]   — pure domain types and logic
+```
 
-### Event handling
-- `internal/events/builder.go`
-  - `BuildEvent`
-- `internal/events/events.go`
-  - Event definitions and payload types
-- `internal/events/parser.go`
-  - `ParseEvent`
+**Why this separation matters:**
+- The transport layer knows nothing about matchmaking or chat logic
+- The server knows nothing about WebSockets
+- The app layer is the only place they meet
+- `main.go` stays clean — it only creates things and starts them
 
-### Matchmaking
-- `internal/matchmaking/matcher.go`
-  - `FindMatch`
-- `internal/matchmaking/queue.go`
-  - `NewQueue`
-  - `AddUser`
-  - `RemoveUser`
-  - `RemoveUsers`
+## Running the server
 
-### Server logic and state
-- `internal/server/presence.go`
-  - `GetPresenceStats`
-- `internal/server/server.go`
-  - `NewServer`
-  - `CreateUser`
-  - `SetPreferences`
-  - `SetOnline`
-  - `JoinQueue`
-  - `TryMatch`
-  - `SendMessage`
-  - `CreateSession`
-  - `PingSession`
-  - `DisconnectSession`
-  - `LeaveChat`
-- `internal/server/state.go`
-  - Server state management
-- `internal/server/worker.go`
-  - `StartCleanupWorker`
-  - `cleanupInactiveSessions`
+```bash
+go run ./cmd/server/main.go
+```
 
-### WebSocket transport
-- `internal/transport/websocket/client.go`
-  - `ReadPump`
-  - `WritePump`
-- `internal/transport/websocket/handler.go`
-  - `ServeWS`
-- `internal/transport/websocket/hub.go`
-  - `NewHub`
-  - `Run`
-  - `GetClientByID`
-  - `SendToClient`
-  - `Broadcast`
-  - `BroadcastPresence`
-- `internal/transport/websocket/router.go`
-  - `HandleEvent`
-  - `handleJoinQueue`
-  - `handleSendMessage`
-  - `handleNextPartner`
+Server starts on `:8080`. WebSocket endpoint: `ws://localhost:8080/ws`
 
-### User management
-- `internal/user/session.go`
-  - Session handling and expiry
-- `internal/user/user.go`
-  - User profile and preferences
+## Running the tests
 
-## Code summary
+```bash
+# all tests
+go test ./...
 
-A quick list of packages and exported symbols:
+# specific packages with output
+go test ./internal/matchmaking/... -v
+go test ./internal/server/... -v
+go test ./internal/integration/... -v
 
-- `flamingo_chat`
-  - `main`
-- `flamingo_chat/internal/events`
-  - `BuildEvent`
-  - `Event`
-  - `JoinQueuePayload`
-  - `SendMessagePayload`
-  - `MatchFoundPayload`
-  - `MessageReceivedPayload`
-  - `ErrorPayload`
-  - `NextPartnerPayload`
-  - `ChatEndedPayload`
-  - `ParseEvent`
-- `flamingo_chat/internal/chat`
-  - `Chat`
-  - `GetOtherUserID`
-  - `Manager`
-  - `NewManager`
-  - `CreateChat`
-  - `EndChat`
-  - `SendMessage`
-  - `GetChat`
-  - `RemoveChat`
-  - `Message`
-- `flamingo_chat/internal/matchmaking`
-  - `FindMatch`
-  - `QueueEntry`
-  - `Queue`
-  - `NewQueue`
-  - `AddUser`
-  - `RemoveUser`
-  - `RemoveUsers`
-- `flamingo_chat/internal/user`
-  - `Session`
-  - `User`
-- `flamingo_chat/internal/server`
-  - `PresenceStats`
-  - `GetPresenceStats`
-  - `Server`
-  - `NewServer`
-  - `CreateUser`
-  - `SetPreferences`
-  - `SetOnline`
-  - `JoinQueue`
-  - `TryMatch`
-  - `SendMessage`
-  - `CreateSession`
-  - `PingSession`
-  - `DisconnectSession`
-  - `LeaveChat`
-  - `State`
-  - `StartCleanupWorker`
-  - `cleanupInactiveSessions`
-- `flamingo_chat/internal/transport/websocket`
-  - `Client`
-  - `ReadPump`
-  - `WritePump`
-  - `ServeWS`
-  - `Hub`
-  - `NewHub`
-  - `Run`
-  - `GetClientByID`
-  - `SendToClient`
-  - `Broadcast`
-  - `BroadcastPresence`
-  - `HandleEvent`
-  - `handleJoinQueue`
-  - `handleSendMessage`
-  - `handleNextPartner`
+# one specific test
+go test ./internal/server/... -run TestLeaveChat_NotifiesPartner -v
+```
 
-## Notes
+## Connecting a client manually
 
-- This README is intended as a quick overview of the repository structure.
-- Implementation details are organized under `internal/` to keep the server modular and testable.
-- The `cmd/server` package contains the main application entry point.
+```bash
+# install wscat
+npm install -g wscat
+
+# connect
+wscat -c ws://localhost:8080/ws
+
+# first message must always be init
+{"type":"init","payload":{"user_id":""}}
+
+# join the queue
+{"type":"join_queue","payload":{"gender":"male","preference":"female"}}
+
+# send a message (after being matched)
+{"type":"send_message","payload":{"chat_id":"CHAT_ID_HERE","content":"hello"}}
+```
+
+## User lifecycle
+
+```
+connect → init → ready → join_queue → queue_joined → match_found → [chat] → leave_chat
+                                                                          ↑
+                                                              chat_ended (partner left)
+```
+
+## Event protocol summary
+
+All communication is JSON events over WebSocket with the shape `{"type": "...", "payload": {...}}`.
+
+**Client sends:** `init`, `join_queue`, `send_message`, `ping`, `leave_chat`
+
+**Server sends:** `ready`, `queue_joined`, `match_found`, `message_received`, `chat_ended`, `error`
+
+See [FRONTEND_GUIDE.md](./FRONTEND_GUIDE.md) for the complete frontend integration reference including all payload schemas, the full JavaScript client example, and UI state design notes.
+
+## Key design decisions
+
+- **No REST API** — everything over WebSocket, one persistent connection per user
+- **No authentication** — users are identified by a short random hex ID stored on the client
+- **No message history** — chats are ephemeral, messages are not persisted between sessions
+- **Mutex on server, channels on hub** — server state is protected by a single mutex; hub uses Go channels so its client map is only ever touched by one goroutine
+- **Callbacks not interfaces** — the server exposes `OnMatchFound`, `OnMessage`, `OnChatEnded` function fields; the app layer sets these during `Wire()`, keeping `main.go` to ~10 lines
