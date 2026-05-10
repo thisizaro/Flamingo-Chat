@@ -2,198 +2,369 @@
 
 A simple Go-based chat server with matchmaking, real-time WebSocket transport, and clean modular design.
 
+---
+
 ## What this project includes
 
-- Matchmaking system for pairing users in private chats
-- WebSocket transport layer for real-time messaging
-- Event-based protocol for chat actions
-- User session handling and presence tracking
-- Background cleanup of inactive sessions
+* Matchmaking system for pairing users in private chats
+* WebSocket transport layer for real-time messaging
+* Event-based protocol for chat actions
+* User session handling and presence tracking
+* Background cleanup of inactive sessions
+
+---
 
 ## Project Structure
 
 ```
+│   allFunctions.go
+│   allStructus.go
+│   FRONTEND.md
 │   go.mod
 │   go.sum
-│
+│   NOTES.md
+│   README.md
+│   
 ├───cmd
 │   └───server
-│       main.go
-│
+│           main.go
+│           
 └───internal
     ├───app
-    │
+    │       handler.go
+    │       
     ├───chat
-    │   chat.go
-    │   manager.go
-    │   message.go
-    │
+    │       chat.go
+    │       manager.go
+    │       message.go
+    │       
     ├───events
-    │   builder.go
-    │   events.go
-    │   parser.go
-    │
+    │       builder.go
+    │       events.go
+    │       parser.go
+    │       
+    ├───integration
+    │       integration_test.go
+    │       
     ├───matchmaking
-    │   matcher.go
-    │   queue.go
-    │
+    │       matcher.go
+    │       matcher_test.go
+    │       queue.go
+    │       
     ├───server
-    │   presence.go
-    │   server.go
-    │   state.go
-    │   worker.go
-    │
+    │       presence.go
+    │       server.go
+    │       server_test.go
+    │       state.go
+    │       worker.go
+    │       
     ├───transport
     │   └───websocket
-    │
+    │           client.go
+    │           hub.go
+    │           
     ├───user
-    │   session.go
-    │   user.go
-    │
+    │       session.go
+    │       user.go
+    │       
     └───utils
 ```
 
-## Core components
+---
 
-### Entry point
-- `cmd/server/main.go`
-  - Starts the chat server
+## File → Functions Mapping
 
-### Chat management
-- `internal/chat/chat.go`
-  - `GetOtherUserID`
-- `internal/chat/manager.go`
-  - `NewManager`
-  - `CreateChat`
-  - `EndChat`
-  - `SendMessage`
-  - `GetChat`
-  - `RemoveChat`
-- `internal/chat/message.go`
-  - Message definitions and helper logic
+File: allFunctions.go
 
-### Event handling
-- `internal/events/builder.go`
-  - `BuildEvent`
-- `internal/events/events.go`
-  - Event definitions and payload types
-- `internal/events/parser.go`
-  - `ParseEvent`
+* main
 
-### Matchmaking
-- `internal/matchmaking/matcher.go`
-  - `FindMatch`
-- `internal/matchmaking/queue.go`
-  - `NewQueue`
-  - `AddUser`
-  - `RemoveUser`
-  - `RemoveUsers`
+File: allStructus.go
 
-### Server logic and state
-- `internal/server/presence.go`
-  - `GetPresenceStats`
-- `internal/server/server.go`
-  - `NewServer`
-  - `CreateUser`
-  - `SetPreferences`
-  - `SetOnline`
-  - `JoinQueue`
-  - `TryMatch`
-  - `SendMessage`
-  - `CreateSession`
-  - `PingSession`
-  - `DisconnectSession`
-  - `LeaveChat`
-- `internal/server/state.go`
-  - Server state management
-- `internal/server/worker.go`
-  - `StartCleanupWorker`
-  - `cleanupInactiveSessions`
+* main
 
-### WebSocket transport
-- `internal/transport/websocket/`
+File: cmd/server/main.go
 
-### User management
-- `internal/user/session.go`
-  - Session handling and expiry
-- `internal/user/user.go`
-  - User profile and preferences
+* main
 
-## Code summary
+File: internal/app/handler.go
 
-A quick list of packages and exported symbols:
+* New
+* Wire
+* HandleMessage
+* handleInit
+* handleJoinQueue
+* handleSendMessage
+* handlePing
+* handleLeaveChat
+* sendError
+* unmarshalPayload
 
-- `flamingo_chat`
-  - `main`
-- `flamingo_chat/internal/events`
-  - `BuildEvent`
-  - `Event`
-  - `JoinQueuePayload`
-  - `SendMessagePayload`
-  - `MatchFoundPayload`
-  - `MessageReceivedPayload`
-  - `ErrorPayload`
-  - `NextPartnerPayload`
-  - `ChatEndedPayload`
-  - `ParseEvent`
-- `flamingo_chat/internal/chat`
-  - `Chat`
-  - `GetOtherUserID`
-  - `Manager`
-  - `NewManager`
-  - `CreateChat`
-  - `EndChat`
-  - `SendMessage`
-  - `GetChat`
-  - `RemoveChat`
-  - `Message`
-- `flamingo_chat/internal/matchmaking`
-  - `FindMatch`
-  - `QueueEntry`
-  - `Queue`
-  - `NewQueue`
-  - `AddUser`
-  - `RemoveUser`
-  - `RemoveUsers`
-- `flamingo_chat/internal/user`
-  - `Session`
-  - `User`
-- `flamingo_chat/internal/server`
-  - `PresenceStats`
-  - `GetPresenceStats`
-  - `Server`
-  - `NewServer`
-  - `CreateUser`
-  - `SetPreferences`
-  - `SetOnline`
-  - `JoinQueue`
-  - `TryMatch`
-  - `SendMessage`
-  - `CreateSession`
-  - `PingSession`
-  - `DisconnectSession`
-  - `LeaveChat`
-  - `State`
-  - `StartCleanupWorker`
-  - `cleanupInactiveSessions`
-- `flamingo_chat/internal/transport/websocket`
+File: internal/chat/chat.go
+
+* GetOtherUserID
+
+File: internal/chat/manager.go
+
+* NewManager
+* CreateChat
+* EndChat
+* SendMessage
+* GetChat
+* RemoveChat
+
+File: internal/chat/message.go
+
+* (message definitions)
+
+File: internal/events/builder.go
+
+* BuildEvent
+
+File: internal/events/events.go
+
+* (event structs)
+
+File: internal/events/parser.go
+
+* ParseEvent
+
+File: internal/integration/integration_test.go
+
+* startTestServer
+* connect
+* send
+* receive
+* assertEventType
+* TestIntegration_InitNewUser
+* TestIntegration_InitReturningUser
+* TestIntegration_InvalidUserID_GetsNewID
+* TestIntegration_FullMatchAndMessage
+* TestIntegration_LeaveChat_PartnerNotified
+
+File: internal/matchmaking/matcher.go
+
+* FindMatch
+
+File: internal/matchmaking/matcher_test.go
+
+* TestFindMatch_BasicPair
+* TestFindMatch_NoMatchWrongPreference
+* TestFindMatch_EmptyQueue
+* TestFindMatch_OneUser
+* TestFindMatch_PicksFirstCompatiblePair
+* TestRemoveUser
+* TestRemoveUsers_Multiple
+* contains
+
+File: internal/matchmaking/queue.go
+
+* NewQueue
+* AddUser
+* RemoveUser
+* RemoveUsers
+
+File: internal/server/presence.go
+
+* GetPresenceStats
+
+File: internal/server/server.go
+
+* NewServer
+* generateUserID
+* InitUser
+* SetPreferences
+* SetOnline
+* JoinQueue
+* TryMatch
+* SendMessage
+* CreateSession
+* PingSession
+* DisconnectSession
+* LeaveChat
+* UserExists
+
+File: internal/server/server_test.go
+
+* TestInitUser_NewUser
+* TestInitUser_ReturningUser
+* TestInitUser_UnknownID_CreatesNew
+* TestInitUser_UniqueIDs
+* TestJoinQueue_StatusChanges
+* TestTryMatch_TwoCompatibleUsers
+* TestTryMatch_IncompatibleUsers_NoMatch
+* TestLeaveChat_NotifiesPartner
+* TestLeaveChat_StatusResetToIdle
+* TestSendMessage_DeliveredToPartner
+
+File: internal/server/state.go
+
+* (state definitions)
+
+File: internal/server/worker.go
+
+* StartCleanupWorker
+* cleanupInactiveSessions
+
+File: internal/transport/websocket/client.go
+
+* ServeWS
+* readPump
+* writePump
+* Send
+* SetUserID
+* GetUserID
+
+File: internal/transport/websocket/hub.go
+
+* NewHub
+* Run
+* RegisterUser
+* SendToUser
+* SetOnDisconnect
+
+File: internal/user/session.go
+
+* (session struct)
+
+File: internal/user/user.go
+
+* (user struct)
+
+---
+
+## Package Summary
+
+Package: flamingo_chat
+
+* Function: main
+* Function: main
+
+Package: flamingo_chat/internal/chat
+
+* Struct: Chat
+* Method: GetOtherUserID
+* Struct: Manager
+* Function: NewManager
+* Method: CreateChat
+* Method: EndChat
+* Method: SendMessage
+* Method: GetChat
+* Method: RemoveChat
+* Struct: Message
+
+Package: flamingo_chat/internal/events
+
+* Function: BuildEvent
+* Struct: Event
+* Struct: InitPayload
+* Struct: JoinQueuePayload
+* Struct: SendMessagePayload
+* Struct: NextPartnerPayload
+* Struct: ReadyPayload
+* Struct: MatchFoundPayload
+* Struct: MessageReceivedPayload
+* Struct: ErrorPayload
+* Struct: ChatEndedPayload
+* Function: ParseEvent
+
+Package: flamingo_chat/internal/matchmaking
+
+* Method: FindMatch
+* Struct: QueueEntry
+* Struct: Queue
+* Function: NewQueue
+* Method: AddUser
+* Method: RemoveUser
+* Method: RemoveUsers
+
+Package: flamingo_chat/internal/user
+
+* Struct: Session
+* Struct: User
+
+Package: flamingo_chat/internal/server
+
+* Struct: PresenceStats
+* Method: GetPresenceStats
+* Struct: Server
+* Function: NewServer
+* Function: generateUserID
+* Method: InitUser
+* Method: SetPreferences
+* Method: SetOnline
+* Method: JoinQueue
+* Method: TryMatch
+* Method: SendMessage
+* Method: CreateSession
+* Method: PingSession
+* Method: DisconnectSession
+* Method: LeaveChat
+* Method: UserExists
+* Struct: State
+* Method: StartCleanupWorker
+* Method: cleanupInactiveSessions
+
+Package: flamingo_chat/internal/transport/websocket
+
+* Struct: Client
+* Function: ServeWS
+* Method: readPump
+* Method: writePump
+* Method: Send
+* Method: SetUserID
+* Method: GetUserID
+* Struct: Hub
+* Struct: targetedMessage
+* Function: NewHub
+* Method: Run
+* Method: RegisterUser
+* Method: SendToUser
+* Method: SetOnDisconnect
+
+Package: flamingo_chat/internal/app
+
+* Struct: App
+* Function: New
+* Method: Wire
+* Method: HandleMessage
+* Method: handleInit
+* Method: handleJoinQueue
+* Method: handleSendMessage
+* Method: handlePing
+* Method: handleLeaveChat
+* Method: sendError
+* Function: unmarshalPayload
+
+Package: flamingo_chat/cmd/server
+
+* Function: main
+
+Package: flamingo_chat/internal/integration
+
+* (integration tests)
+
+---
+
+## Request Flow
+
+```
+Browser → WebSocket bytes
+  → client.readPump()
+  → app.HandleMessage()
+  → events.ParseEvent()
+  → switch(event.Type)
+  → server.SomeMethod()
+  → hub.SendToUser()
+  → client.Send()
+  → client.writePump()
+  → Browser receives bytes
+```
+
+---
 
 ## Notes
 
-- This README is intended as a quick overview of the repository structure.
-- Implementation details are organized under `internal/` to keep the server modular and testable.
-- The `cmd/server` package contains the main application entry point.
-
-
-
-Browser → WebSocket bytes
-  → client.readPump() reads bytes
-  → app.HandleMessage() called
-  → events.ParseEvent() parses JSON
-  → switch on event.Type
-  → server.SomeMethod() does the work
-  → server callback fires (OnMatchFound etc.)
-  → hub.SendToUser() finds the right client
-  → client.Send() puts it on the send channel
-  → client.writePump() sends it over WebSocket
-  → Browser receives bytes
+* Organized using Go's `internal/` pattern for modularity
+* Clear separation of concerns: transport, server logic, matchmaking, events
+* Designed for testability with integration and unit tests
+* WebSocket-based real-time architecture
