@@ -1,3 +1,4 @@
+// internal/transport/websocket/client.go
 package websocket
 
 import (

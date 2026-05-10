@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"flamingo_chat/internal/app"
 	"flamingo_chat/internal/server"
@@ -30,6 +31,16 @@ func main() {
 		ws.ServeWS(hub, application.HandleMessage, w, r)
 	})
 
+	// Insider Joke lol.
+	http.HandleFunc("/OishikHealth", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Health Report. - Oishik"))
+	})
+
 	fmt.Println("[SERVER] Running on :8080")
-	http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
+	http.ListenAndServe(":"+port, nil)
 }

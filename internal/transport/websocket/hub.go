@@ -1,3 +1,4 @@
+// internal/transport/websocket/hub.go
 package websocket
 
 import "fmt"
