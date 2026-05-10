@@ -31,8 +31,12 @@ type Server struct {
 	// OnChatEnded: tell a user their chat has ended
 	OnChatEnded func(userID string, data []byte)
 
-	// OnReady: send the ready event back to a specific user
-	OnReady func(userID string, data []byte)
+	// OnReady: send the ready event back to a specific user -- we dont need this any more.
+	// OnReady func(userID string, data []byte) -- we dont need this anymore.
+
+	// OnBroadcast: send data to ALL connected users.
+	// Used for presence updates. The hub implements this.
+	OnBroadcast func(data []byte)
 }
 
 func NewServer() *Server {
@@ -95,6 +99,15 @@ func (s *Server) SetPreferences(id, gender, preference string) {
 	if u, ok := s.state.Users[id]; ok {
 		u.Gender = gender
 		u.Preference = preference
+		u.LastActiveAt = time.Now()
+	}
+}
+
+func (s *Server) Ping(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if u, ok := s.state.Users[id]; ok {
 		u.LastActiveAt = time.Now()
 	}
 }
@@ -297,10 +310,63 @@ func (s *Server) LeaveChat(userID, chatID string) {
 	}
 }
 
+// --- Presence ---
+
+// BroadcastPresence calculates current online stats and
+// sends them to all connected users via OnBroadcast.
+// Called by the worker on a timer.
+func (s *Server) BroadcastPresence() {
+	stats := s.GetPresenceStats()
+
+	data, _ := events.BuildEvent(
+		events.EventPresenceUpdate,
+		events.PresenceUpdatePayload{
+			TotalOnline:  stats.TotalOnline,
+			MaleOnline:   stats.MaleOnline,
+			FemaleOnline: stats.FemaleOnline,
+		},
+	)
+
+	if s.OnBroadcast != nil {
+		s.OnBroadcast(data)
+	}
+}
+
 // UserExists checks if a user ID is known to the server.
 func (s *Server) UserExists(userID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, ok := s.state.Users[userID]
 	return ok
+}
+
+// HandleDisconnect is called when a user's WebSocket connection closes.
+// It only resets status if they are NOT currently in a chat.
+// If they are in_chat, we leave their status alone — the cleanup worker
+// will handle the timeout if they don't reconnect.
+func (s *Server) HandleDisconnect(userID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	u, ok := s.state.Users[userID]
+	if !ok {
+		return
+	}
+
+	fmt.Println("[SERVER] Disconnect for user:", userID, "status:", u.Status)
+
+	switch u.Status {
+	case user.StatusInQueue:
+		s.queue.RemoveUsers(userID)
+		u.Status = user.StatusIdle
+		fmt.Println("[SERVER] Removed from queue on disconnect:", userID)
+	case user.StatusInChat:
+		// Leave status intact — chat is still active.
+		// Cleanup worker handles the timeout if they don't come back.
+		fmt.Println("[SERVER] Disconnected mid-chat — status preserved:", userID)
+	default:
+		u.Status = user.StatusOffline
+	}
+
+	u.LastActiveAt = time.Now()
 }

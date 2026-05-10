@@ -54,12 +54,16 @@ func (a *App) Wire() {
 		a.hub.SendToUser(userID, data)
 	}
 
+	// Presence update — broadcast to everyone
+	a.server.OnBroadcast = func(data []byte) {
+		a.hub.Broadcast(data)
+	}
+
 	// When a user disconnects from WebSocket, clean up their server state.
+	// User disconnected from WebSocket — mark them offline
 	a.hub.SetOnDisconnect(func(userID string) {
 		fmt.Println("[APP] User disconnected:", userID)
-		// For now: just mark them offline via a session disconnect.
-		// In a fuller implementation you'd look up their session ID.
-		// The cleanup worker will handle timed-out sessions automatically.
+		a.server.HandleDisconnect(userID)
 	})
 }
 
@@ -162,14 +166,12 @@ func (a *App) handleSendMessage(client *ws.Client, event *events.Event) {
 }
 
 func (a *App) handlePing(client *ws.Client) {
-	// The WebSocket layer handles low-level ping/pong automatically.
-	// This is an app-level ping to keep the session alive on the server.
-	// We look up the session by userID here.
-	// For now: just update LastActiveAt via SetOnline as a proxy.
+	// Just update the user's last active time. This is called by the client every 30 seconds.
 	userID := client.GetUserID()
 	if userID != "" {
-		a.server.SetOnline(userID)
+		a.server.Ping(userID)
 	}
+
 }
 
 func (a *App) handleLeaveChat(client *ws.Client, event *events.Event) {

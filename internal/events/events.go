@@ -70,6 +70,14 @@ type MessageReceivedPayload struct {
 	MessageType string `json:"message_type"`
 }
 
+// PresenceUpdatePayload is broadcast to all connected users
+// on a regular interval so the frontend can show live counts.
+type PresenceUpdatePayload struct {
+	TotalOnline  int `json:"total_online"`
+	MaleOnline   int `json:"male_online"`
+	FemaleOnline int `json:"female_online"`
+}
+
 type ErrorPayload struct {
 	Message string `json:"message"`
 }

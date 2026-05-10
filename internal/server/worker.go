@@ -8,12 +8,29 @@ import (
 )
 
 func (s *Server) StartCleanupWorker() {
-	go func() {
-		for {
-			time.Sleep(10 * time.Second)
-			s.cleanupInactiveSessions()
-		}
-	}()
+	go s.runCleanup()
+	go s.runPresenceBroadcast()
+}
+
+// runCleanup ticks every 10 seconds and removes inactive sessions.
+func (s *Server) runCleanup() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.cleanupInactiveSessions()
+	}
+}
+
+// runPresenceBroadcast ticks every 5 seconds and pushes
+// live online counts to all connected clients.
+func (s *Server) runPresenceBroadcast() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		s.BroadcastPresence()
+	}
 }
 
 func (s *Server) cleanupInactiveSessions() {
