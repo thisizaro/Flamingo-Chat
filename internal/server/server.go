@@ -169,8 +169,15 @@ func (s *Server) TryMatch() {
 
 	fmt.Println("[SERVER] Matched:", userA.ID, "with", userB.ID)
 	fmt.Println("[SERVER] Chat created:", newChat.ID)
-	LogMetric("match_found", userA.ID, "partner:"+userB.ID+" chat:"+newChat.ID)
-	LogMetric("match_found", userB.ID, "partner:"+userA.ID+" chat:"+newChat.ID)
+	// also log gender. and the format of details should be key value pairs. }
+	detailsA := "{partner:" + userB.ID + ", chat:" + newChat.ID + ", partner_gender:" + userB.Gender + "}"
+	detailsB := "{partner:" + userA.ID + ", chat:" + newChat.ID + ", partner_gender:" + userA.Gender + "}"
+
+	// LogMetric("match_found", userA.ID, "partner:"+userB.ID+" chat:"+newChat.ID)
+	// LogMetric("match_found", userB.ID, "partner:"+userA.ID+" chat:"+newChat.ID)
+
+	LogMetric("match_found", userA.ID, detailsA)
+	LogMetric("match_found", userB.ID, detailsB)
 
 	if s.OnMatchFound != nil {
 		s.OnMatchFound(userA.ID, userB.ID, newChat.ID)
@@ -221,8 +228,8 @@ func (s *Server) SendMessage(
 	if s.OnMessage != nil {
 		s.OnMessage(receiverID, eventData)
 	}
-	// make a details variable: {"chat": chatID, "type": messageType, "content": content}
-	details := "{ chat:" + chatID + ", type:" + string(messageType) + ", content:" + content + " }"
+	// make a details variable: {"chat": chatID, "type": messageType, "content": content, "gender": u.Gender}
+	details := "{ chat:" + chatID + ", type:" + string(messageType) + ", content:" + content + ", gender:" + u.Gender + " }"
 
 	LogMetric("message_sent", userID, details)
 }
