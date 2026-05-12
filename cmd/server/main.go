@@ -11,6 +11,15 @@ import (
 )
 
 func main() {
+	// 0. Initialize metrics — set the Google Sheets URL to send metrics to.
+	metricsURL := os.Getenv("METRICS_URL")
+
+	//temporary hardcode for testing.
+	// metricsURL := ""
+
+	server.InitMetrics(metricsURL)
+	fmt.Println("[MAIN] Metrics initialized with URL:", metricsURL)
+
 	// 1. Create the server (business logic + state)
 	srv := server.NewServer()
 

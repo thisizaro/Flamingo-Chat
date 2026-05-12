@@ -72,6 +72,7 @@ func (s *Server) InitUser(userID string) *user.User {
 			u.Status = user.StatusIdle
 			u.LastActiveAt = time.Now()
 			fmt.Println("[SERVER] Returning user:", u.ID)
+			LogMetric("user_returned", u.ID, "")
 			return u
 		}
 		// ID provided but not found — fall through and make a new one
@@ -87,6 +88,7 @@ func (s *Server) InitUser(userID string) *user.User {
 	}
 	s.state.Users[u.ID] = u
 	fmt.Println("[SERVER] New user created:", u.ID)
+	LogMetric("user_created", u.ID, "")
 	return u
 }
 
@@ -167,6 +169,8 @@ func (s *Server) TryMatch() {
 
 	fmt.Println("[SERVER] Matched:", userA.ID, "with", userB.ID)
 	fmt.Println("[SERVER] Chat created:", newChat.ID)
+	LogMetric("match_found", userA.ID, "partner:"+userB.ID+" chat:"+newChat.ID)
+	LogMetric("match_found", userB.ID, "partner:"+userA.ID+" chat:"+newChat.ID)
 
 	if s.OnMatchFound != nil {
 		s.OnMatchFound(userA.ID, userB.ID, newChat.ID)
@@ -217,6 +221,10 @@ func (s *Server) SendMessage(
 	if s.OnMessage != nil {
 		s.OnMessage(receiverID, eventData)
 	}
+	// make a details variable: {"chat": chatID, "type": messageType, "content": content}
+	details := "{ chat:" + chatID + ", type:" + string(messageType) + ", content:" + content + " }"
+
+	LogMetric("message_sent", userID, details)
 }
 
 // --- Sessions ---
@@ -300,6 +308,7 @@ func (s *Server) LeaveChat(userID, chatID string) {
 	}
 
 	fmt.Println("[CHAT] Ended:", chatID)
+	LogMetric("chat_ended", userID, "chat:"+chatID)
 
 	if s.OnChatEnded != nil {
 		data, _ := events.BuildEvent(
