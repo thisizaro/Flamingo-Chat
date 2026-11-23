@@ -1,3 +1,13 @@
+> [!IMPORTANT]
+> **This repository is archived and no longer actively maintained.**
+>
+> A newer version of Flamingo Chat is available here:
+> **[Flamingo Chat – New Repository](https://github.com/Flamingo-Apps/Flamingo-Chat)**
+>
+> Please refer to the new repository for the latest code, updates, and development.
+
+---
+
 # Flamingo Chat
 
 A Go-based anonymous chat server with matchmaking, real-time WebSocket transport, and a clean modular architecture.
